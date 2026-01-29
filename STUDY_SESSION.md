@@ -20,67 +20,45 @@ AI Coding Agent は魔法ではありません。実はシンプルな4つの要
 
 ### 1.1 全体像
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      AI Coding Agent                             │
-│                                                                  │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                   Agent Loop (ReAct)                     │    │
-│  │                                                          │    │
-│  │     ┌──────────┐    ┌──────────┐    ┌──────────┐        │    │
-│  │     │  THINK   │───▶│   ACT    │───▶│ OBSERVE  │────┐   │    │
-│  │     │ LLM呼出  │    │ツール実行│    │ 結果収集 │    │   │    │
-│  │     └──────────┘    └──────────┘    └──────────┘    │   │    │
-│  │          ▲                                          │   │    │
-│  │          └──────────────────────────────────────────┘   │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│         │                        │                               │
-│         ▼                        ▼                               │
-│  ┌─────────────────┐    ┌──────────────────────────────────┐   │
-│  │   LLM Client    │    │          Tool Registry           │   │
-│  │                 │    │                                  │   │
-│  │ • Gemini        │    │  read_file, write_file,         │   │
-│  │ • Llama         │    │  execute_command, ...            │   │
-│  └─────────────────┘    └──────────────────────────────────┘   │
-│                                    │                             │
-│                    ┌───────────────┴───────────────┐            │
-│                    │      Context Engineering      │            │
-│                    │   (Message History管理)       │            │
-│                    └───────────────────────────────┘            │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Agent["AI Coding Agent"]
+        subgraph Loop["Agent Loop (ReAct)"]
+            THINK["THINK<br/>LLM呼出"] --> ACT["ACT<br/>ツール実行"]
+            ACT --> OBSERVE["OBSERVE<br/>結果収集"]
+            OBSERVE --> THINK
+        end
+
+        Loop --> LLM["LLM Client<br/>• Gemini<br/>• Llama"]
+        Loop --> Tools["Tool Registry<br/>read_file, write_file,<br/>execute_command, ..."]
+
+        Tools --> Context["Context Engineering<br/>(Message History管理)"]
+    end
 ```
 
 ### 1.2 Agent Loop（エージェントループ）
 
 AI Coding Agent の心臓部。**ReAct パターン**と呼ばれる Think → Act → Observe のサイクルです。
 
-```
-User: "hello.py を読んで内容を説明して"
-                │
-                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  Iteration 1                                                     │
-│                                                                  │
-│  THINK:  LLM「ファイルを読むために read_file ツールを使います」  │
-│          → tool_calls: [{name: "read_file", input: {...}}]      │
-│          → stop_reason: "tool_use"                              │
-│                                                                  │
-│  ACT:    read_file(path="hello.py") を実行                      │
-│          → "def greet(): return 'Hello, World!'"                │
-│                                                                  │
-│  OBSERVE: 結果を履歴に追加                                       │
-└─────────────────────────────────────────────────────────────────┘
-                │
-                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  Iteration 2                                                     │
-│                                                                  │
-│  THINK:  LLM「ファイルの内容を確認しました。説明します」         │
-│          → tool_calls: []（ツール呼び出しなし）                  │
-│          → stop_reason: "end_turn"                              │
-│                                                                  │
-│  → ループ終了、ユーザーに回答を返す                              │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    User["User: 'hello.py を読んで内容を説明して'"]
+    User --> Iter1
+
+    subgraph Iter1["Iteration 1"]
+        T1["THINK: LLM「read_file ツールを使います」<br/>→ tool_calls: [{name: 'read_file', ...}]<br/>→ stop_reason: 'tool_use'"]
+        A1["ACT: read_file(path='hello.py') を実行<br/>→ 'def greet(): return Hello, World!'"]
+        O1["OBSERVE: 結果を履歴に追加"]
+        T1 --> A1 --> O1
+    end
+
+    Iter1 --> Iter2
+
+    subgraph Iter2["Iteration 2"]
+        T2["THINK: LLM「ファイルの内容を確認しました。説明します」<br/>→ tool_calls: []（ツール呼び出しなし）<br/>→ stop_reason: 'end_turn'"]
+        End["ループ終了、ユーザーに回答を返す"]
+        T2 --> End
+    end
 ```
 
 **ポイント**: `stop_reason` がループ継続/終了を制御します。
@@ -160,23 +138,15 @@ for tool_call in response.tool_calls:
 
 異なる LLM プロバイダーを抽象化するレイヤーです。
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                       BaseLLMClient                              │
-│                      (抽象基底クラス)                            │
-├─────────────────────────────────────────────────────────────────┤
-│  chat(messages, tools) → LLMResponse                            │
-│  format_assistant_message(response) → dict                      │
-│  format_tool_result(id, result) → dict                          │
-└─────────────────────────────────────────────────────────────────┘
-              ▲                              ▲
-              │                              │
-    ┌─────────┴─────────┐          ┌────────┴────────┐
-    │   GeminiClient    │          │   LlamaClient   │
-    │                   │          │                 │
-    │ Native Function   │          │ JSON モード     │
-    │ Calling           │          │ (プロンプト指示) │
-    └───────────────────┘          └─────────────────┘
+```mermaid
+flowchart BT
+    Base["BaseLLMClient<br/>(抽象基底クラス)<br/>---<br/>chat / format_assistant_message / format_tool_result"]
+
+    Gemini["GeminiClient<br/>Native Function Calling"]
+    Llama["LlamaClient<br/>JSON モード"]
+
+    Gemini -->|extends| Base
+    Llama -->|extends| Base
 ```
 
 **なぜ抽象化が必要か？**
@@ -485,17 +455,12 @@ class PlanExecuteAgent:
 
 エージェントが自身の出力を批評し、失敗から学習するパターンです。
 
-```
-┌──────────┐     ┌──────────┐     ┌──────────────────────┐
-│  Actor   │────▶│ Evaluator│────▶│   Self-Reflection    │
-│  (実行)  │     │  (評価)  │     │   (反省・改善案)     │
-└──────────┘     └──────────┘     └──────────────────────┘
-     ▲                                        │
-     │                                        ▼
-     │              ┌────────────────────────────────────┐
-     └──────────────│        Episodic Memory            │
-                    │  (過去の試行と反省を蓄積)          │
-                    └────────────────────────────────────┘
+```mermaid
+flowchart LR
+    Actor["Actor<br/>(実行)"] --> Evaluator["Evaluator<br/>(評価)"]
+    Evaluator --> Reflection["Self-Reflection<br/>(反省・改善案)"]
+    Reflection --> Memory["Episodic Memory<br/>(過去の試行と反省を蓄積)"]
+    Memory --> Actor
 ```
 
 研究によると、Self-Reflection を使用するエージェントは統計的に有意に高いパフォーマンスを示します。
@@ -526,18 +491,35 @@ class ReflexionAgent:
 
 本番環境での信頼性を高めるための多層防御です。
 
-```
-Layer 1: Retry with Backoff
-  └─ 一時的エラー → 再試行（1s → 2s → 4s → 8s）
+```mermaid
+flowchart TD
+    Error["エラー発生"] --> L1
 
-Layer 2: Fallback
-  └─ 代替手段に切り替え（別のLLM、縮退モード）
+    subgraph L1["Layer 1: Retry with Backoff"]
+        R1["一時的エラー → 再試行<br/>(1s → 2s → 4s → 8s)"]
+    end
 
-Layer 3: Circuit Breaker
-  └─ 連続失敗時はサービスを一時停止
+    L1 -->|失敗| L2
 
-Layer 4: Human Escalation
-  └─ 自動回復不可能な場合は人間に委譲
+    subgraph L2["Layer 2: Fallback"]
+        R2["代替手段に切り替え<br/>(別のLLM、縮退モード)"]
+    end
+
+    L2 -->|失敗| L3
+
+    subgraph L3["Layer 3: Circuit Breaker"]
+        R3["連続失敗時は<br/>サービスを一時停止"]
+    end
+
+    L3 -->|失敗| L4
+
+    subgraph L4["Layer 4: Human Escalation"]
+        R4["自動回復不可能な場合は<br/>人間に委譲"]
+    end
+
+    L1 -->|成功| Success["復旧"]
+    L2 -->|成功| Success
+    L3 -->|成功| Success
 ```
 
 ```python
