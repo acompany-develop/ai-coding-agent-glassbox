@@ -134,7 +134,64 @@ for tool_call in response.tool_calls:
 }
 ```
 
-### 1.4 LLM Client
+### 1.4 Function Calling の仕組み
+
+「LLM がツールを呼ぶ」とはどういうことか、もう少し掘り下げます。
+
+Tool Use（Function Calling）の実現方式は、**API の仕様**によって2つに分かれます。
+
+#### Native Function Calling（Gemini, GPT-4, Claude）
+
+API のレスポンス仕様に `functionCall` 等の**専用フィールド**が定義されています。
+
+```json
+// Gemini API のレスポンス（HTTP JSON）
+{
+  "candidates": [{
+    "content": {
+      "parts": [
+        {
+          "functionCall": {
+            "name": "read_file",
+            "args": {"path": "hello.py"}
+          }
+        }
+      ]
+    }
+  }]
+}
+```
+
+SDK がこの JSON を型付きオブジェクトに変換するため、`part.function_call.name` のようにアクセスできます。
+
+#### JSON モード（Llama 等の非対応モデル）
+
+API にツール専用フィールドがないため、テキスト出力の中に JSON を生成させます。
+
+```json
+// Ollama API のレスポンス（HTTP JSON）
+{
+  "message": {
+    "content": "{\"thought\": \"...\", \"tool_call\": {\"name\": \"read_file\", \"input\": {\"path\": \"hello.py\"}}}"
+  }
+}
+```
+
+`content` はただの文字列なので、自前で `json.loads()` してパースする必要があります。
+
+#### 何が違いを決めるのか
+
+「Tool Use 対応」は LLM モデル単体の能力ではなく、**3つのレイヤーの組み合わせ**で決まります。
+
+| レイヤー | Gemini | Llama (Ollama) |
+|---------|--------|---------------|
+| モデルの学習 | Function Calling 用にファインチューニング済み | 部分的に対応 |
+| API 仕様 | `functionCall` 専用フィールドあり | テキスト出力のみ |
+| SDK | 型付きオブジェクトに自動変換 | なし（自前パース） |
+
+> **補足**: Llama と同じモデルでも、Groq や Together AI など一部のホスティングサービスは独自に Function Calling 対応の API を提供しています。つまり API レイヤーが対応すれば Native Function Calling として使えます。
+
+### 1.5 LLM Client
 
 異なる LLM プロバイダーを抽象化するレイヤーです。
 
@@ -154,7 +211,7 @@ flowchart BT
 - 新しいプロバイダーの追加が容易
 - テスト時にモックに差し替え可能
 
-### 1.5 Context Engineering（コンテキスト管理）
+### 1.6 Context Engineering（コンテキスト管理）
 
 LLM はステートレスです。毎回のリクエストで「これまでの会話全体」を送信する必要があります。
 
@@ -541,19 +598,23 @@ async def execute_with_resilience(operation, fallbacks):
     raise PermanentError("All recovery attempts failed")
 ```
 
+#### 縮退モード（Degraded Mode）
+
+Layer 2 の Fallback で登場する「縮退モード」とは、**一部の機能を制限した状態でサービスを継続すること**です。完全停止（0%）ではなく、機能を落としてでも動き続けます。
+
+```
+Tier 1: 全機能          GPT-4 で高品質な回答 + コード実行 + テスト
+    ↓ 障害発生
+Tier 2: 基本機能のみ    GPT-3.5 で回答 + コード生成のみ（実行なし）
+    ↓ 障害発生
+Tier 3: 最小機能        キャッシュされた定型応答を返す
+    ↓ 障害発生
+Tier 4: 完全停止        サービス停止、人間にエスカレーション
+```
+
+例えば Netflix は推薦エンジンがダウンした際に、パーソナライズなしの人気ランキングを表示します。これも縮退モードの一種です。
+
 → 詳細は `examples/error-recovery/` を参照
-
-### 3.5 Claude Code / Cursor との比較
-
-| 機能 | minimal/ | standard/ | Claude Code |
-|------|----------|-----------|-------------|
-| Agent Loop | ReAct | ReAct | ReAct |
-| Tool 数 | 4 | 9 | 20+ |
-| Human-in-the-loop | × | ○ (ask_user) | ○ |
-| Sub-agent | × | × | ○ |
-| MCP 対応 | × | × | ○ |
-
-本実装は**教育目的**ですが、核心部分は同じです。
 
 ---
 
@@ -574,13 +635,6 @@ async def execute_with_resilience(operation, fallbacks):
 | Tool Use 方式 | Native vs JSON | 信頼性 vs 互換性 |
 | エラー処理 | Retry vs Fallback | シンプルさ vs 堅牢性 |
 
-### 4.3 次のステップ
-
-1. `minimal/` を動かしてみる
-2. ツールを追加してみる（例: grep, web_fetch）
-3. `standard/` で拡張版を試す
-4. `examples/` で高度なパターンを学ぶ
-
 ### 4.4 参考資料
 
 **リポジトリ内ドキュメント**:
@@ -592,34 +646,3 @@ async def execute_with_resilience(operation, fallbacks):
 - [ReAct Paper](https://arxiv.org/abs/2210.03629)
 - [Reflexion Paper](https://arxiv.org/abs/2303.11366)
 - [LangGraph Plan-and-Execute](https://langchain-ai.github.io/langgraph/tutorials/plan-and-execute/plan-and-execute/)
-
----
-
-## 付録: クイックスタート
-
-### セットアップ
-
-```bash
-# リポジトリをクローン
-git clone git@github.com:acompany-develop/ai-coding-agent-glassbox.git
-cd ai-coding-agent-glassbox
-
-# minimal/ を動かす
-cd minimal
-cp .env.example .env
-# .env に GEMINI_API_KEY を設定
-
-uv run ai-agent-minimal
-```
-
-### 試してみるプロンプト
-
-```
-> このディレクトリのファイル一覧を見せて
-> hello.py を読んで内容を説明して
-> hello.py の "World" を "Universe" に変更して（standard/ のみ）
-```
-
----
-
-**質問があればどうぞ！**
