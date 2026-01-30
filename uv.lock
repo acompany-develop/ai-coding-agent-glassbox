@@ -3,7 +3,7 @@ revision = 2
 requires-python = ">=3.11"
 
 [[package]]
-name = "ai-coding-agent-minimal"
+name = "ai-coding-agent-glassbox"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

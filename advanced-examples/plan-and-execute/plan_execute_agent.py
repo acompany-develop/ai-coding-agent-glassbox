@@ -2,7 +2,7 @@
 Plan-and-Execute エージェントの基本実装
 
 このファイルは Plan-and-Execute パターンの教育目的の実装です。
-minimal/ や standard/ とは独立した実装例として提供しています。
+src/ のReActエージェントとは独立した実装例として提供しています。
 
 使用方法:
     python plan_execute_agent.py
