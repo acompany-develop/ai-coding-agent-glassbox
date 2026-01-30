@@ -1,7 +1,7 @@
 [project]
-name = "ai-coding-agent-minimal"
+name = "ai-coding-agent-glassbox"
 version = "0.1.0"
-description = "AI Coding Agent - Glass Box Implementation (Minimal Edition)"
+description = "AI Coding Agent - Glass Box Implementation"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -18,7 +18,7 @@ dev = [
 ]
 
 [project.scripts]
-ai-agent-minimal = "src.main:main"
+ai-agent = "src.main:main"
 
 [build-system]
 requires = ["hatchling"]

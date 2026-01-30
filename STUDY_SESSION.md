@@ -240,13 +240,12 @@ LLM はステートレスです。毎回のリクエストで「これまでの�
 
 ## 2. 実装を見てみる
 
-実際のコードを見ていきましょう。`minimal/` は約200行で AI Coding Agent の核心を実装しています。
+実際のコードを見ていきましょう。約200行で AI Coding Agent の核心を実装しています。
 
 ### 2.1 ファイル構成
 
 ```
-minimal/
-├── src/
+src/
 │   ├── main.py              # エントリーポイント
 │   ├── agent.py             # エージェントループ ★核心
 │   ├── tool_registry.py     # ツール管理
@@ -419,8 +418,7 @@ When you have the final answer, respond ONLY with:
 ### 2.6 実際に動かしてみる
 
 ```bash
-cd minimal
-uv run ai-agent-minimal
+uv run ai-agent
 ```
 
 ```
@@ -458,7 +456,7 @@ def greet():
 
 ## 3. 応用的なロジック
 
-minimal/ の ReAct パターンは基本形です。実用的なエージェントには追加のパターンが必要になります。
+ReAct パターンは基本形です。実用的なエージェントには追加のパターンが必要になります。
 
 ### 3.1 パターン一覧
 
@@ -638,7 +636,7 @@ Tier 4: 完全停止        サービス停止、人間にエスカレーショ�
 ### 4.4 参考資料
 
 **リポジトリ内ドキュメント**:
-- `minimal/docs/` - 基本実装の詳細解説
+- `docs/` - 基本実装の詳細解説
 - `advanced-examples/` - 高度なパターンの実装例
 
 **外部リソース**:
