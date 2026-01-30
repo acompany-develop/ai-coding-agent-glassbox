@@ -38,11 +38,11 @@ class Tool(ABC):
         """
         pass
 
-    def to_anthropic_tool(self) -> dict:
-        """Anthropic API用のツール定義に変換
+    def to_tool_definition(self) -> dict:
+        """LLMに渡すツール定義を生成
 
         Returns:
-            Anthropic Messages APIのtools形式
+            ツール定義の辞書（name, description, input_schema）
         """
         return {
             "name": self.name,

@@ -11,14 +11,14 @@ from .base import BaseLLMClient, LLMResponse, ToolCall
 
 @dataclass
 class TextBlock:
-    """テキストブロック（Anthropic互換形式）"""
+    """テキストブロック（共通形式）"""
     type: str = "text"
     text: str = ""
 
 
 @dataclass
 class ToolUseBlock:
-    """ツール使用ブロック（Anthropic互換形式）"""
+    """ツール使用ブロック（共通形式）"""
     type: str = "tool_use"
     id: str = ""
     name: str = ""
@@ -54,7 +54,7 @@ class GeminiClient(BaseLLMClient):
         return "Gemini"
 
     def _convert_tools_to_gemini_format(self, tools: list[dict]) -> list[types.Tool]:
-        """Anthropic形式のツール定義をGemini形式に変換"""
+        """共通形式のツール定義をGemini形式に変換"""
         function_declarations = []
 
         for tool in tools:
@@ -71,7 +71,7 @@ class GeminiClient(BaseLLMClient):
         self,
         messages: list[dict],
     ) -> list[types.Content]:
-        """Anthropic形式のメッセージをGemini形式に変換"""
+        """共通形式のメッセージをGemini形式に変換"""
         gemini_contents = []
 
         for msg in messages:
@@ -185,7 +185,7 @@ class GeminiClient(BaseLLMClient):
         }
 
     def format_assistant_message(self, response: LLMResponse) -> dict:
-        """アシスタントメッセージをフォーマット（Anthropic互換形式で保存）"""
+        """アシスタントメッセージをフォーマット（共通形式で保存）"""
         content = []
 
         if response.text:

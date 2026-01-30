@@ -28,7 +28,7 @@ class LLMResponse:
 class BaseLLMClient(ABC):
     """LLMクライアントの抽象基底クラス
 
-    各プロバイダー（OpenAI, Gemini, Anthropic）の実装はこのクラスを継承する。
+    各プロバイダー（Gemini, Llama等）の実装はこのクラスを継承する。
     """
 
     @property
@@ -48,7 +48,7 @@ class BaseLLMClient(ABC):
 
         Args:
             messages: メッセージ履歴
-            tools: 利用可能なツールのリスト（Anthropic形式）
+            tools: 利用可能なツールのリスト（共通形式）
             system: システムプロンプト
 
         Returns:

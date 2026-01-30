@@ -46,12 +46,12 @@ class ToolRegistry:
         return self._tools.get(name)
 
     def get_tool_definitions(self) -> list[dict]:
-        """Anthropic API用のツール定義リストを取得
+        """LLMに渡すツール定義リストを取得
 
         Returns:
-            すべての登録済みツールのAnthropic形式定義リスト
+            すべての登録済みツールの定義リスト
         """
-        return [tool.to_anthropic_tool() for tool in self._tools.values()]
+        return [tool.to_tool_definition() for tool in self._tools.values()]
 
     def execute(self, name: str, arguments: dict[str, Any]) -> str:
         """ツールを名前で検索して実行
