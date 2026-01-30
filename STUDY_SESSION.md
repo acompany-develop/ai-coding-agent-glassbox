@@ -506,7 +506,7 @@ class PlanExecuteAgent:
         return final_result
 ```
 
-→ 詳細は `examples/plan-and-execute/` を参照
+→ 詳細は `advanced-examples/plan-and-execute/` を参照
 
 ### 3.3 Self-Reflection（Reflexion）
 
@@ -542,7 +542,7 @@ class ReflexionAgent:
         return best_result
 ```
 
-→ 詳細は `examples/reflexion/` を参照
+→ 詳細は `advanced-examples/reflexion/` を参照
 
 ### 3.4 Error Recovery
 
@@ -614,7 +614,7 @@ Tier 4: 完全停止        サービス停止、人間にエスカレーショ�
 
 例えば Netflix は推薦エンジンがダウンした際に、パーソナライズなしの人気ランキングを表示します。これも縮退モードの一種です。
 
-→ 詳細は `examples/error-recovery/` を参照
+→ 詳細は `advanced-examples/error-recovery/` を参照
 
 ---
 
@@ -639,8 +639,7 @@ Tier 4: 完全停止        サービス停止、人間にエスカレーショ�
 
 **リポジトリ内ドキュメント**:
 - `minimal/docs/` - 基本実装の詳細解説
-- `standard/docs/` - 拡張ツールの解説
-- `examples/` - 高度なパターンの実装例
+- `advanced-examples/` - 高度なパターンの実装例
 
 **外部リソース**:
 - [ReAct Paper](https://arxiv.org/abs/2210.03629)
