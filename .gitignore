@@ -45,5 +45,4 @@ Thumbs.db
 .uv/
 
 # Project specific - exclude unwanted examples
-**/examples/my_sample_project/
-**/examples/advanced-patterns/
+**/examples/*
