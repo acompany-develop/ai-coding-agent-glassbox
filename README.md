@@ -1,4 +1,4 @@
-# AI Coding Agent - Glass Box Implementation (Minimal Edition)
+# AI Coding Agent - Glass Box Implementation
 
 AI コーディングエージェント（Claude Code や Cursor のようなもの）の内部構造を理解するための最小セット実装。
 「ガラスボックス」として、各コンポーネントの動作が見える設計になっています。

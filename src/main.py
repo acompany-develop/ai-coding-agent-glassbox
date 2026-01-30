@@ -1,4 +1,4 @@
-"""AI Coding Agent - Glass Box Implementation (Minimal Edition)
+"""AI Coding Agent - Glass Box Implementation
 
 ガラスボックス設計のAIコーディングエージェント。
 各コンポーネントの動作が見える教育目的の実装。
@@ -47,7 +47,7 @@ def create_agent(provider: str, model: str | None = None) -> Agent:
     Returns:
         設定済みのAgentインスタンス
     """
-    print_header("AI Coding Agent - Glass Box (Minimal Edition)")
+    print_header("AI Coding Agent - Glass Box")
 
     # LLMクライアントの初期化
     print_init(f"Initializing LLM client ({cyan(provider)})...")
@@ -126,7 +126,7 @@ def run_interactive(agent: Agent) -> None:
 def parse_args() -> argparse.Namespace:
     """コマンドライン引数をパース"""
     parser = argparse.ArgumentParser(
-        description="AI Coding Agent - Glass Box Implementation (Minimal Edition)",
+        description="AI Coding Agent - Glass Box Implementation",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
