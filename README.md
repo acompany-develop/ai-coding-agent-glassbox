@@ -274,10 +274,8 @@ Llama 3.1 8B は Native Function Calling（Tool Use）に対応していませ�
 ### uv を使用（推奨）
 
 ```bash
-cd minimal
-
 # 依存関係のインストールと実行
-uv run ai-agent-minimal
+uv run ai-agent
 
 # または直接 Python モジュールとして実行
 uv run python -m src.main
@@ -319,15 +317,15 @@ export OLLAMA_BASE_URL="http://localhost:11434"  # デフォルト値
 
 ```bash
 # Gemini を使用（デフォルト）
-uv run ai-agent-minimal
+uv run ai-agent
 
 # プロバイダーを指定
-uv run ai-agent-minimal --provider gemini
-uv run ai-agent-minimal --provider llama
+uv run ai-agent --provider gemini
+uv run ai-agent --provider llama
 
 # モデルも指定
-uv run ai-agent-minimal --provider gemini --model gemini-2.0-flash
-uv run ai-agent-minimal --provider llama --model llama3.1:70b
+uv run ai-agent --provider gemini --model gemini-2.0-flash
+uv run ai-agent --provider llama --model llama3.1:70b
 ```
 
 ### 対話例
@@ -341,9 +339,10 @@ uv run ai-agent-minimal --provider llama --model llama3.1:70b
 ## ファイル構成
 
 ```
-minimal/
 ├── pyproject.toml            # 依存関係（uv/pip 対応）
 ├── README.md
+├── STUDY_SESSION.md          # 勉強会資料
+├── advanced-examples/        # 応用パターン集
 ├── src/
 │   ├── __init__.py
 │   ├── main.py               # エントリーポイント
@@ -362,9 +361,10 @@ minimal/
 │       ├── write_file.py     # ファイル書き込み
 │       ├── list_files.py     # ディレクトリ一覧
 │       └── execute_command.py # シェルコマンド実行
-└── examples/
-    └── sample_project/       # テスト用サンプル
-        └── hello.py
+├── examples/
+│   └── sample_project/       # テスト用サンプル
+│       └── hello.py
+└── docs/                     # 詳細解説
 ```
 
 ## ツール一覧

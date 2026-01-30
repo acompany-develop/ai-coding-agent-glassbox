@@ -54,7 +54,7 @@ AI コーディングエージェント（Claude Code, Cursor など）の内部
 ## ファイル構成
 
 ```
-minimal/src/
+src/
 ├── main.py              # エントリーポイント（→ 01-agent-loop.md）
 ├── agent.py             # エージェントループ（→ 01-agent-loop.md）
 ├── tool_registry.py     # ツール管理（→ 04-tools.md）

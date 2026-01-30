@@ -313,7 +313,7 @@ class MultiAgentSystem:
 | Self-Reflection | 中 | 精度が重要なタスク | 低 |
 | Multi-Agent | 高 | 大規模プロジェクト | 低 |
 
-## 本実装（minimal/）の位置づけ
+## 本実装の位置づけ
 
 本実装は **ReAct パターン** を採用しています。
 
