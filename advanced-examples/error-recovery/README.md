@@ -57,29 +57,112 @@ AI エージェントは複雑なシステムであり、様々な要因で失�
 
 ## 使用方法
 
+### 基本: エージェントループに組み込む
+
+Error Recovery はエージェントループの内部に組み込んで使います。
+LLM 呼び出しやツール実行を `executor.execute()` で包むことで、リトライやフォールバックが自動的に適用されます。
+
 ```python
-from error_recovery import ResilientExecutor, ResilienceConfig, TransientError
+class Agent:
+    def __init__(self, llm_client, tool_registry):
+        self.llm_client = llm_client
+        self.tool_registry = tool_registry
 
-config = ResilienceConfig(
-    max_retries=3,
-    base_delay=1.0,
-    failure_threshold=5,  # Circuit Breaker
+        # Error Recovery の設定
+        config = ResilienceConfig(
+            max_retries=3,       # 最大3回リトライ
+            base_delay=1.0,      # 初回待機1秒（以降 2s, 4s と倍増）
+            failure_threshold=5, # 5回連続失敗で Circuit Breaker が遮断
+        )
+        self.executor = ResilientExecutor(config)
+
+    async def run(self, user_input: str) -> str:
+        for iteration in range(self.max_iterations):
+            # THINK: LLM呼び出しを executor 経由にする
+            response = await self.executor.execute(
+                lambda: self.llm_client.chat(messages, tools),
+                circuit_name="llm",                  # "llm" 回路で管理
+                fallbacks=[self.fallback_llm_call],   # 失敗時の代替手段
+            )
+
+            if response.stop_reason == "end_turn":
+                return response.text
+
+            # ACT: ツール実行も executor 経由にできる
+            for tool_call in response.tool_calls:
+                result = await self.executor.execute(
+                    lambda: self.tool_registry.execute(tool_call.name, tool_call.input),
+                    circuit_name=f"tool_{tool_call.name}",  # ツールごとに別回路
+                )
+```
+
+### executor.execute() の引数
+
+```python
+result = await executor.execute(
+    primary_operation,              # ① まず実行する関数
+    circuit_name="llm",             # ② Circuit Breaker の回路名
+    fallbacks=[fallback_operation], # ③ 失敗時の代替関数リスト
 )
-executor = ResilientExecutor(config)
+```
 
-# Retry + Fallback 付きで実行
-async def primary_operation():
-    # メインの処理
-    raise TransientError("Network error")
+| 引数 | 説明 |
+|------|------|
+| `primary_operation` | 本来実行したい関数。リトライ対象 |
+| `circuit_name` | Circuit Breaker の回路名。同じ名前は同じブレーカーで管理される |
+| `fallbacks` | 代替関数のリスト。リトライが全て失敗した場合に順番に試行 |
 
-async def fallback_operation():
-    return "Fallback result"
+### circuit_name（回路名）とは
+
+電気のブレーカーと同じ概念です。操作の種類ごとに**独立した回路**を持ち、1箇所の障害が他に波及するのを防ぎます。
+
+```
+"llm" 回路       ──[ブレーカー]── LLM API 呼び出し
+"tool_read" 回路  ──[ブレーカー]── read_file ツール
+"tool_exec" 回路  ──[ブレーカー]── execute_command ツール
+```
+
+`"llm"` の回路が5回連続失敗して遮断（OPEN）されても、`"tool_read"` は影響を受けません。
+
+### 実行フロー
+
+`executor.execute()` を呼ぶと、内部で以下が順番に起きます:
+
+```
+① Circuit Breaker チェック
+   → 回路が OPEN（遮断中）なら即座に ③ へ
+   → CLOSED（正常）なら ② へ
+
+② Retry with Backoff
+   1回目: primary_operation() 実行 → 失敗 → 1秒待機
+   2回目: primary_operation() 実行 → 失敗 → 2秒待機
+   3回目: primary_operation() 実行 → 失敗 → 4秒待機
+   4回目: primary_operation() 実行 → 失敗 → リトライ上限超過
+
+③ Fallback
+   fallbacks[0]() を実行 → 失敗なら fallbacks[1]() → ...
+   → 成功した結果を返す
+   → 全て失敗なら例外を投げる
+```
+
+### 具体例: LLM API のフォールバック
+
+```python
+async def call_primary_llm():
+    return await gpt4_client.chat(messages, tools)
+
+async def call_fallback_llm():
+    return await gpt35_client.chat(messages, tools)
+
+async def return_cached_response():
+    return cached_responses.get(user_input, "申し訳ありません、現在応答できません。")
 
 result = await executor.execute(
-    primary_operation,
-    circuit_name="api_call",
-    fallbacks=[fallback_operation],
+    call_primary_llm,
+    circuit_name="llm",
+    fallbacks=[call_fallback_llm, return_cached_response],
 )
+# GPT-4 → (失敗) → GPT-3.5 → (失敗) → キャッシュ応答
 ```
 
 ## 主要コンポーネント
@@ -173,6 +256,88 @@ async def complex_operation():
 4. **Circuit Breaker でカスケード障害を防止**
 5. **包括的なログとアラート**
 6. **人間の介入は最後の手段**
+
+## 補足: フレームワーク（LangGraph）を使う場合との違い
+
+本実装では `ResilientExecutor` や `CircuitBreaker` を自前で実装していますが、LangGraph のようなフレームワークを使うと、これらの機能が組み込みで提供されます。
+
+### リトライ
+
+本実装では `RetryStrategy` クラスを自前で書いていますが、LangGraph では `RetryPolicy` をノードに渡すだけで済みます。
+
+```python
+# 本実装（自前）
+config = ResilienceConfig(max_retries=3, base_delay=1.0)
+executor = ResilientExecutor(config)
+result = await executor.execute(operation, circuit_name="llm")
+```
+
+```python
+# LangGraph
+from langgraph.graph import StateGraph
+from langgraph.types import RetryPolicy
+
+builder = StateGraph(MessagesState)
+builder.add_node(
+    "call_model",
+    call_model,
+    retry_policy=RetryPolicy(max_attempts=5),  # これだけでリトライが有効に
+)
+```
+
+### エラーハンドリング
+
+本実装ではエラー分類（`TransientError` / `PermanentError` 等）を自前で定義していますが、LangGraph では `ToolNode` がエラーハンドリングを内蔵しています。
+
+```python
+# 本実装（自前）
+class TransientError(Exception): ...
+class PermanentError(Exception): ...
+
+# エラー種別に応じて分岐するロジックを自分で書く
+```
+
+```python
+# LangGraph
+from langgraph.prebuilt import ToolNode, create_react_agent
+
+# ToolNode がエラーを自動で ToolMessage に変換し、LLM にフィードバック
+custom_tool_node = ToolNode(
+    [my_tool],
+    handle_tool_errors="ツール実行に失敗しました。別の方法を試してください。",
+)
+agent = create_react_agent(model="anthropic:claude-3-7-sonnet-latest", tools=custom_tool_node)
+```
+
+### ノードごとのリトライポリシー
+
+LangGraph ではノード（処理単位）ごとに異なるリトライポリシーを宣言的に設定できます。本実装の `circuit_name` で回路を分けるのと同じ発想ですが、より簡潔です。
+
+```python
+# LangGraph: ノードごとに異なるポリシーを設定
+builder.add_node(
+    "query_database",
+    query_database,
+    retry_policy=RetryPolicy(retry_on=sqlite3.OperationalError),  # DB エラーのみリトライ
+)
+builder.add_node(
+    "call_model",
+    call_model,
+    retry_policy=RetryPolicy(max_attempts=5),  # 最大5回
+)
+```
+
+### まとめ: 自前実装 vs フレームワーク
+
+| 観点 | 本実装（自前） | LangGraph |
+|------|--------------|-----------|
+| リトライ | `RetryStrategy` を実装 | `RetryPolicy` を渡すだけ |
+| エラーハンドリング | エラー分類・分岐を自前実装 | `ToolNode` が内蔵 |
+| Circuit Breaker | `CircuitBreaker` を実装 | フレームワーク外で対応 |
+| Fallback | `FallbackChain` を実装 | グラフの条件分岐で表現 |
+| 学びやすさ | 内部動作が全て見える | 抽象化されて見えにくい |
+
+本実装は「中で何が起きているか」を理解するためのものです。フレームワークが提供する `RetryPolicy` や `ToolNode` の裏側では、本実装と同様の仕組みが動いています。
 
 ## 参考文献
 

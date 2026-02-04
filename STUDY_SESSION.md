@@ -614,6 +614,40 @@ Tier 4: 完全停止        サービス停止、人間にエスカレーショ�
 
 → 詳細は `advanced-examples/error-recovery/` を参照
 
+### 3.5 補足: エージェントループと推論戦略の違い
+
+Best-of-N や Tree-of-Thoughts は Plan-and-Execute と混同されやすいですが、**別のカテゴリ**です。
+
+| カテゴリ | 概要 | 判断基準 | 例 |
+|---------|------|---------|-----|
+| **エージェントループパターン** | タスク実行の制御フロー | ツールを使って外部に作用する | ReAct, Plan-and-Execute, Self-Reflection, Multi-Agent |
+| **推論・生成戦略** | LLMの出力品質を上げる手法 | LLMの生成プロセスを工夫する | Chain-of-Thought (CoT), Tree-of-Thoughts (ToT), Best-of-N |
+
+**エージェントループ**は「何をどの順でやるか」を決める制御の話です。ツール実行を伴い、外部環境に作用します。
+
+- **ReAct**: 1ステップずつ判断して実行する
+- **Plan-and-Execute**: 計画を立ててから実行する
+- **Self-Reflection**: 実行→評価→反省→再実行のサイクルを回す
+
+**推論・生成戦略**は「各ステップでどう考えるか」を改善する手法です。ツール実行を伴わず、LLM の生成プロセス自体を工夫します。
+
+- **Chain-of-Thought**: 段階的に推論させる（プロンプト戦略）
+- **Tree-of-Thoughts**: 思考を木構造で分岐・探索する（BFS/DFSで中間状態を評価）
+- **Best-of-N**: N個の候補を並列生成し、最良のものを選ぶ（サンプリング戦略）
+
+これらは独立した概念であり、**組み合わせて使えます**。
+
+```
+Plan-and-Execute + Best-of-N
+→ 計画をN個生成し、最良の計画を選んでから実行
+
+ReAct + Tree-of-Thoughts
+→ 各ステップで複数の行動候補を木構造で探索
+
+Plan-and-Execute + Self-Reflection
+→ 計画を実行し、失敗したら反省して再計画
+```
+
 ---
 
 ## 4. まとめ
